@@ -31,6 +31,7 @@ void initQueue(struct Queue *q);
 void enqueue(struct Queue *q,double value);
 double dequeue(struct Queue *q);
 void printQueue(struct Queue *q);
+double buildDecimal(struct Queue *q);
 
 int main()
 {
@@ -40,10 +41,15 @@ int main()
 	initStack(&operatorStack);
 	struct Stack numberStack;//for tokenizing numbers
 	initStack(&numberStack);
+	struct Queue decimalQueue;//for tokenzing numbers with decimal points
+	initQueue(&decimalQueue);
 	struct Queue outputQueue;
 	initQueue(&outputQueue);
 	bool buildingANumber = false;
+	bool buildingADecimal = false;
 	double tempNum = 0;
+	double tempDecimal = 0;
+	double finalNum = 0;
 	while(calcRunning)
 	{
 		printf("Calculator>");
@@ -52,30 +58,54 @@ int main()
 		for(int i=0;i<4096;i++)
 		{
 			c = buffer[i];
-			if(c == 0)
-			{
-				if(buildingANumber)
-				{
-					tempNum = buildNum(&numberStack);
-					printf("Number built: %f\n",tempNum);
-					buildingANumber = false;
-				}
-				break;
-			}
 			//48-57 ascii codes for numbers
 			if(c >= 48 && c <= 57)
 			{
 				tempNum = c - 48;
-				push(&numberStack,tempNum);
-				buildingANumber = true;
+				if(!buildingADecimal)
+				{
+					push(&numberStack,tempNum);
+					buildingANumber = true;
+				}
+				else
+				{
+					enqueue(&decimalQueue,tempNum);
+				}
+			}
+			else if(c == 46)// . character
+			{
+				if(!buildingADecimal)
+				{
+					buildingADecimal = true;
+				}
+				else
+				{
+					printf("ERROR Too many decimal points in a row!\n");
+					break;
+				}
 			}
 			else
 			{
 				if(buildingANumber)
 				{
-					tempNum = buildNum(&numberStack);
-					printf("Number built: %f\n",tempNum);
+					finalNum = buildNum(&numberStack);
+					if(!buildingADecimal)
+					{
+						printf("Number built: %f\n",finalNum);
+						buildingANumber = false;
+					}
+				}
+				if(buildingADecimal)
+				{
+					finalNum+=buildDecimal(&decimalQueue);
+					printf("Number built: %f\n",finalNum);
 					buildingANumber = false;
+					buildingADecimal = false;
+				}
+				
+				if(c == 0)
+				{
+					break;
 				}
 			}
 		}
@@ -178,4 +208,24 @@ double dequeue(struct Queue *q)
 void printQueue(struct Queue *q)
 {
 	printStack(&(q->s1));
+}
+double buildDecimal(struct Queue *q)
+{
+	double value = 0;
+	double temp = 0;
+	int power = 1;
+	if(q->s1.tos > 0)
+	{
+		while(q->s1.tos > 0)
+		{
+			temp = pop(&(q->s1));
+			value = value + (pow(10,-power)*temp);
+			power++;
+		}
+	}
+	else
+	{
+		value = pop(&(q->s1))*0.1;
+	}
+	return value;
 }
