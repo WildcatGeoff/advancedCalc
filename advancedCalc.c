@@ -54,6 +54,8 @@ int main()
 	double tempNum = 0;
 	double tempDecimal = 0;
 	double finalNum = 0;
+	bool isUnary = false;
+	
 	while(calcRunning)
 	{
 		printf("Calculator>");
@@ -153,11 +155,45 @@ int main()
 				}
 			}
 			
+			if(c == 45)// - is it unary or subtraction?
+			{
+				if(i!=0)
+				{
+					char uTest;
+					for(int j=i-1;j>=0;j--)
+					{
+						uTest = buffer[j];
+						if(uTest >= 48 && uTest <= 57)
+						{
+							isUnary = false;
+							break;
+						}
+						else if(uTest == 32)//empty space
+						{
+						}
+						else//not a number or empty space, must be some sort of operator or function and therefore is unary
+						{
+							isUnary = true;
+							break;
+						}
+					}
+				}
+				else
+				{
+					isUnary = true;
+				}
+			}
+			
 			if((c == 42) || (c == 43) || (c == 45) || (c == 47) || (c == 94))//*+-/^ ascii codes
 			{
 				double op;
 				double p1;
 				double p2;
+				if(c == 45 && isUnary == true)
+				{
+					c = 1;
+					isUnary = false;
+				}
 				while(operatorStack.tos > 0)
 				{
 					op = pop(&operatorStack);
@@ -322,6 +358,9 @@ double getPrecedence(double in)
 	double out = 0;
 	switch((int)in)
 	{
+		case 1:
+			out = 2;
+			break;
 		case 40:
 			out = 1;
 			break;
@@ -345,7 +384,6 @@ double getPrecedence(double in)
 }
 void evaluateExpression(struct Queue *out,struct Queue *index)
 {
-	printQueue(out);
 	int i = -1;
 	int qIndex = 0;
 	double answer = 0;
@@ -359,6 +397,7 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 	double x = 0;
 	char *errorMsg;
 	char divideByZero[] = "ERROR: Division by Zero\n";
+	
 	
 	if(index->s1.tos > 0)
 	{
@@ -379,35 +418,55 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 			}
 			else//it is an operator
 			{
-				switch((int)(temp))
+				if(eval.tos > 1 || temp == 1)
 				{
-					case 42://*
-						b = pop(&eval);
-						a = pop(&eval);
-						x = a*b;
-						push(&eval,x);
-						break;
-					case 43://+
-						b = pop(&eval);
-						a = pop(&eval);
-						x = a+b;
-						push(&eval,x);
-						break;
-					case 47://division
-						b = pop(&eval);
-						a = pop(&eval);
-						if((int)b != 0)
-						{
-							x = a/b;
+					switch((int)(temp))
+					{
+						case 1://unary -
+							b = pop(&eval);
+							x = -1*b;
 							push(&eval,x);
-						}
-						else
-						{
-							error = true;
-							done = true;
-							errorMsg = divideByZero;
-						}
-						break;
+							break;
+						case 42://multiplication
+							b = pop(&eval);
+							a = pop(&eval);
+							x = a*b;
+							push(&eval,x);
+							break;
+						case 43://addition
+							b = pop(&eval);
+							a = pop(&eval);
+							x = a+b;
+							push(&eval,x);
+							break;
+						case 45://subtraction
+							b = pop(&eval);
+							a = pop(&eval);
+							x = a-b;
+							push(&eval,x);
+							break;
+						case 47://division
+							b = pop(&eval);
+							a = pop(&eval);
+							if((int)b != 0)
+							{
+								x = a/b;
+								push(&eval,x);
+							}
+							else
+							{
+								error = true;
+								done = true;
+								errorMsg = divideByZero;
+							}
+							break;
+						case 94://exponent
+							b = pop(&eval);
+							a = pop(&eval);
+							x = pow(a,b);
+							push(&eval,x);
+							break;
+					}
 				}
 				if(index->s1.tos > 0)
 				{
