@@ -33,6 +33,7 @@ double dequeue(struct Queue *q);
 void printQueue(struct Queue *q);
 double buildDecimal(struct Queue *q);
 double getPrecedence(double in);
+int sanityCheck(char buf[]);
 void evaluateExpression(struct Queue *out,struct Queue *index);
 
 int main()
@@ -40,15 +41,10 @@ int main()
 	char buffer[4096]; //buffer used for keyboard input
 	bool calcRunning = true;
 	struct Stack operatorStack;
-	initStack(&operatorStack);
 	struct Stack numberStack;//for tokenizing numbers
-	initStack(&numberStack);
 	struct Queue operatorIndexQueue;//since stacks and queues only hold doubles, used to keep track of operators in outputQueue
-	initQueue(&operatorIndexQueue);
 	struct Queue decimalQueue;//for tokenzing numbers with decimal points
-	initQueue(&decimalQueue);
 	struct Queue outputQueue;//queue that eventually will hold numbers and operators in polish notation
-	initQueue(&outputQueue);
 	bool buildingANumber = false;
 	bool buildingADecimal = false;//bools for number building functions
 	double tempNum = 0;
@@ -60,6 +56,11 @@ int main()
 	
 	while(calcRunning)
 	{
+		initStack(&operatorStack);
+		initStack(&numberStack);
+		initQueue(&operatorIndexQueue);//reset state of stacks and queues whenever looping
+		initQueue(&decimalQueue);
+		initQueue(&outputQueue);
 		printf("Calculator>");
 		fgets(buffer,sizeof(buffer),stdin); //get input from keyboard
 		char c;
@@ -414,7 +415,29 @@ int main()
 					enqueue(&outputQueue,pop(&operatorStack));
 					enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
 				}
-				evaluateExpression(&outputQueue,&operatorIndexQueue);
+				int sanity = sanityCheck(buffer);
+				if(sanity == 0)
+				{
+					evaluateExpression(&outputQueue,&operatorIndexQueue);
+				}
+				else
+				{
+					switch(sanity)
+					{
+						case 1:
+							printf("ERROR: Expression doesn't contain a number\n");
+							break;
+						case 2:
+							printf("ERROR: Mismatched parenthesis or brackets\n");
+							break;
+						case 3:
+							printf("ERROR: Operator missing operand\n");
+							break;
+						case 4:
+							printf("ERROR: Operator missing operand\n");
+							break;
+					}
+				}
 				break;
 			}
 		}
@@ -591,6 +614,133 @@ double getPrecedence(double in)//input is function num, output is precedence
 			break;
 	}
 	return out;
+}
+int sanityCheck(char buf[])// function that makes basic checks to see if input is formatted correctly
+{
+	int sanity = 0;
+	char c;
+	int leftP = 0;
+	int rightP = 0;
+	int leftB = 0;
+	int rightB = 0;
+	bool hasNumber = false;
+	bool lastNotLeast = false;
+	int endex = 0;
+	int pBalance = 0;
+	int bBalance = 0;
+	bool balanceOff = false;
+	bool badRight = false;
+	bool badStart = false;
+	bool notSpace = false;
+	
+	
+	for(int i=0;i<4096;i++)
+	{
+		c = buf[i];
+		if(!notSpace)
+		{
+			if(c == 42 || c == 43 || c == 47 || c == 94)
+			{
+				badStart = true;
+				notSpace = true;
+			}
+			if(c == 32)
+			{
+			}
+			else
+			{
+				notSpace = true;
+			}
+		}
+		if(c >= 48 && c <= 57)
+		{
+			hasNumber = true;
+		}
+		if(c == 40)
+		{
+			leftP++;
+			pBalance--;
+		}
+		if(c == 41)
+		{
+			rightP++;
+			pBalance++;
+			if(pBalance > 1)
+			{
+				balanceOff = true;
+			}
+		}
+		if(c == 123)
+		{
+			leftB++;
+			bBalance--;
+		}
+		if(c == 125)
+		{
+			rightB++;
+			bBalance++;
+			if(bBalance > 1)
+			{
+				balanceOff = true;
+			}
+		}
+		if((c >=42 && c<=47) || c == 94)
+		{
+			char t = buf[i+1];
+			if(t == 41)
+			{
+				badRight = true;
+			}
+		}
+		if(c == 0)
+		{
+			endex = i;
+			break;
+		}
+	}
+	if(leftP != rightP)
+	{
+		balanceOff = true;
+	}
+	if(leftB != rightB)
+	{
+		balanceOff = true;
+	}
+	for(int j=endex-1;j>0;j--)
+	{
+		c = buf[j];
+		if((c >=42 && c<=47) || c == 94 || c == 40)
+		{
+			lastNotLeast = true;
+			break;
+		}
+		else if((c >= 48 && c <= 57)|| c == 41) 
+		{
+			lastNotLeast = false;
+			break;
+		}
+	}
+	if(!hasNumber)
+	{
+		sanity = 1;
+	}
+	else if(balanceOff)
+	{
+		sanity = 2;
+	}
+	else if(lastNotLeast)
+	{
+		sanity = 3;
+	}
+	else if(badRight)
+	{
+		sanity = 4;
+	}
+	else if(badStart)
+	{
+		sanity = 4;
+	}
+	return sanity;
 }
 void evaluateExpression(struct Queue *out,struct Queue *index)//function that does heavy lifting to convert polish notation to answer
 {
