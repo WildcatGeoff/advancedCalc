@@ -10,7 +10,7 @@
 //stack and queue needed for implementing shunting-yard algorithm
 struct Stack
 {
-	double stack[100];
+	double stack[300];
 	int tos;
 };
 
@@ -47,14 +47,16 @@ int main()
 	initQueue(&operatorIndexQueue);
 	struct Queue decimalQueue;//for tokenzing numbers with decimal points
 	initQueue(&decimalQueue);
-	struct Queue outputQueue;
+	struct Queue outputQueue;//queue that eventually will hold numbers and operators in polish notation
 	initQueue(&outputQueue);
 	bool buildingANumber = false;
-	bool buildingADecimal = false;
+	bool buildingADecimal = false;//bools for number building functions
 	double tempNum = 0;
 	double tempDecimal = 0;
 	double finalNum = 0;
 	bool isUnary = false;
+	
+	printf("Starting advancedCalc, enter a q to quit\n");
 	
 	while(calcRunning)
 	{
@@ -67,24 +69,24 @@ int main()
 			//48-57 ascii codes for numbers
 			if(c >= 48 && c <= 57)
 			{
-				tempNum = c - 48;
+				tempNum = c - 48;//convert from ascii to 0-9 value
 				if(!buildingADecimal)
 				{
-					push(&numberStack,tempNum);
+					push(&numberStack,tempNum);//push onto normal number stack
 					buildingANumber = true;
 				}
 				else
 				{
-					enqueue(&decimalQueue,tempNum);
+					enqueue(&decimalQueue,tempNum);//its a number after the decimal point, put it on decimal queue
 				}
 			}
 			else
 			{
-				if(c != 46)
+				if(c != 46)// .character
 				{
 					if(buildingANumber)
 					{
-						finalNum = buildNum(&numberStack);
+						finalNum = buildNum(&numberStack);//entered in a character thats not a number or . so completely build number from characters
 						if(!buildingADecimal)
 						{
 							enqueue(&outputQueue,finalNum);
@@ -109,14 +111,14 @@ int main()
 				}
 				else
 				{
-					printf("ERROR: Too many decimal points in a row\n");
+					printf("ERROR: Too many decimal points in a row\n");//gets thrown when a number with multiple decimal points is found
 					break;
 				}
 			}
 			
 			if(c == 40 || c == 123)// ( or { characters
 			{
-				push(&operatorStack,c);
+				push(&operatorStack,c);//with the shunting-yard algorithm, push ( or { on stack
 			}
 			
 			if(c == 41)// ) character
@@ -124,10 +126,10 @@ int main()
 				int opcode = 0;
 				while(operatorStack.tos > 0)
 				{
-					opcode = (int)pop(&operatorStack);
+					opcode = (int)pop(&operatorStack);//look on operator stack for ( character
 					if(opcode != 40)
 					{
-						enqueue(&outputQueue,(double)opcode);
+						enqueue(&outputQueue,(double)opcode);//enqueue everything thats not (
 						enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
 					}
 					else
@@ -142,7 +144,7 @@ int main()
 				int opcode = 0;
 				while(operatorStack.tos > 0)
 				{
-					opcode = (int)pop(&operatorStack);
+				opcode = (int)pop(&operatorStack);//same as ) but with }
 					if(opcode != 123)
 					{
 						enqueue(&outputQueue,(double)opcode);
@@ -180,7 +182,7 @@ int main()
 				}
 				else
 				{
-					isUnary = true;
+					isUnary = true;//first character, must be unary
 				}
 			}
 			
@@ -196,12 +198,12 @@ int main()
 				}
 				while(operatorStack.tos > 0)
 				{
-					op = pop(&operatorStack);
+					op = pop(&operatorStack);//compare operator precedence, throw higher precedence operators on queue
 					p1 = getPrecedence(c);
 					p2 = getPrecedence(op);
 					if((int)op != 40 && (int)op != 123)
 					{
-						if(p2 < p1)
+						if(p2 < p1)//lower number means higher precedence
 						{
 							enqueue(&outputQueue,op);
 							enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
@@ -221,7 +223,190 @@ int main()
 				push(&operatorStack,c);
 			}
 			
-			if(c == 0)
+			if(c == 113)//q, quits the calculator
+			{
+				calcRunning = false;
+				break;
+			}
+			if(c >= 65 && c <= 90)//capital letters
+			{
+				c = c+32;//convert capital letters to lowercase
+			}
+			if(c >= 97 && c <= 122)//lowercase letters
+			{
+				char nextLetter = 0;//the next lines just check characters in front to form a function like cos and convert it to a double for the operator stack
+				double functionType = 0;
+				if(c == 99)//c
+				{
+					nextLetter = buffer[i+1];
+					if(nextLetter != 111)
+					{
+						printf("ERROR: illegal character\n");
+						break;
+					}
+					else
+					{
+						nextLetter = buffer[i+2];
+						if(nextLetter == 115)
+						{
+							nextLetter = buffer[i+3];
+							if(nextLetter != 40)
+							{
+								printf("ERROR: ( expected\n");
+								break;
+							}
+							else
+							{
+								//cos function
+								functionType = 2;
+								push(&operatorStack,functionType);
+								i = i+2;
+							}
+						}
+						else if(nextLetter == 116)
+						{
+							nextLetter = buffer[i+3];
+							if(nextLetter != 40)
+							{
+								printf("ERROR: ( expected\n");
+								break;
+							}
+							else
+							{
+								//cot function
+								functionType = 3;
+								push(&operatorStack,functionType);
+								i = i+2;
+							}
+						}
+						else
+						{
+							printf("ERROR: illegal character\n");
+							break;
+						}
+					}
+				}
+				else if(c == 108)//l
+				{
+					nextLetter = buffer[i+1];
+					if(nextLetter == 110)
+					{
+						nextLetter = buffer[i+2];
+						if(nextLetter != 40)
+						{
+							printf("ERROR: ( expected\n");
+							break;
+						}
+						else
+						{
+							//ln function
+							functionType = 4;
+							push(&operatorStack,functionType);
+							i = i+1;
+						}
+					}
+					else if(nextLetter == 111)
+					{
+						nextLetter = buffer[i+2];
+						if(nextLetter == 103)
+						{
+							nextLetter = buffer[i+3];
+							if(nextLetter != 40)
+							{
+								printf("ERROR: ( expected\n");
+								break;
+							}
+							else
+							{
+								//log function
+								functionType = 5;
+								push(&operatorStack,functionType);
+								i = i+2;
+							}
+						}
+						else
+						{
+							printf("ERROR: illegal character\n");
+							break;
+						}
+					}
+					else
+					{
+						printf("ERROR: illegal character\n");
+						break;
+					}
+				}
+				else if(c == 115)
+				{
+					nextLetter = buffer[i+1];
+					if(nextLetter == 105)
+					{
+						nextLetter = buffer[i+2];
+						if(nextLetter == 110)
+						{
+							nextLetter = buffer[i+3];
+							if(nextLetter != 40)
+							{
+								printf("ERROR: ( expected\n");
+								break;
+							}
+							else
+							{
+								//sine function
+								functionType = 6;
+								push(&operatorStack,functionType);
+								i = i+2;
+							}
+						}
+						else
+						{
+							printf("ERROR: illegal character\n");
+							break;
+						}
+					}
+					else
+					{
+						printf("ERROR: illegal character\n");
+						break;
+					}
+				}
+				else if(c == 116)
+				{
+					nextLetter = buffer[i+1];
+					if(nextLetter == 97)
+					{
+						nextLetter = buffer[i+2];
+						if(nextLetter == 110)
+						{
+							nextLetter = buffer[i+3];
+							if(nextLetter != 40)
+							{
+								printf("ERROR: ( expected\n");
+								break;
+							}
+							else
+							{
+								//tangent function
+								functionType = 7;
+								push(&operatorStack,functionType);
+								i = i+2;
+							}
+						}
+						else
+						{
+							printf("ERROR: illegal character\n");
+							break;
+						}
+					}
+					else
+					{
+						printf("ERROR: illegal character\n");
+						break;
+					}
+				}
+			}
+			
+			if(c == 0)//null terminator
 			{
 				//pop all operators still on the operator stack onto the output queue
 				while(operatorStack.tos > 0)
@@ -233,18 +418,17 @@ int main()
 				break;
 			}
 		}
-		calcRunning = false;
 	}
 	return 0;
 }
 
 void initStack(struct Stack *s)
 {
-	s->tos = 0;
+	s->tos = 0;//make sure top of stack is pointing to 0
 }
 void push(struct Stack *s,double value)
 {
-	s->stack[s->tos] = value;
+	s->stack[s->tos] = value;//basic push operation of stack
 	s->tos++;
 }
 double pop(struct Stack *s)
@@ -253,10 +437,10 @@ double pop(struct Stack *s)
 	{
 		s->tos--;
 	}
-	double num = s->stack[s->tos];
+	double num = s->stack[s->tos];//pop stack, move tos
 	return num;
 }
-void printStack(struct Stack *s)
+void printStack(struct Stack *s)//super useful function for debugging purposes
 {
 	for(int i=s->tos-1;i>=0;i--)
 	{
@@ -291,6 +475,10 @@ double buildNum(struct Stack *s)
 			temp = pop(s);
 			value = value + (pow(10,power)*temp);
 			power++;
+			if(power > 300)
+			{
+				printf("Error: Out of Range");
+			}
 		}
 	}
 	else
@@ -299,13 +487,13 @@ double buildNum(struct Stack *s)
 	}
 	return value;
 }
-void initQueue(struct Queue *q)
+void initQueue(struct Queue *q)//queue is made of stacks, init the stacks
 {
 	initStack(&(q->s1));
 	initStack(&(q->s2));
 	q->boq = 0;
 }
-void enqueue(struct Queue *q,double value)
+void enqueue(struct Queue *q,double value)//enqueue by popping one stack to another then pushing first element O(n)
 {
 	if(q->s1.tos > 0)
 	{
@@ -324,7 +512,7 @@ void enqueue(struct Queue *q,double value)
 		push(&(q->s1),value);
 	}
 }
-double dequeue(struct Queue *q)
+double dequeue(struct Queue *q)//first element is on top of first stack O(1)
 {
 	double value = pop(&(q->s1));
 	return value;
@@ -333,7 +521,7 @@ void printQueue(struct Queue *q)
 {
 	printStack(&(q->s1));
 }
-double buildDecimal(struct Queue *q)
+double buildDecimal(struct Queue *q)// like the build number function but for the right of the decimal
 {
 	double value = 0;
 	double temp = 0;
@@ -345,6 +533,10 @@ double buildDecimal(struct Queue *q)
 			temp = pop(&(q->s1));
 			value = value + (pow(10,-power)*temp);
 			power++;
+			if(power > 300)
+			{
+				printf("Error: Out of Range");
+			}
 		}
 	}
 	else
@@ -353,12 +545,30 @@ double buildDecimal(struct Queue *q)
 	}
 	return value;
 }
-double getPrecedence(double in)
+double getPrecedence(double in)//input is function num, output is precedence
 {
 	double out = 0;
 	switch((int)in)
 	{
 		case 1:
+			out = 2;
+			break;
+		case 2:
+			out = 2;
+			break;
+		case 3:
+			out = 2;
+			break;
+		case 4:
+			out = 2;
+			break;
+		case 5:
+			out = 2;
+			break;
+		case 6:
+			out = 2;
+			break;
+		case 7:
 			out = 2;
 			break;
 		case 40:
@@ -382,7 +592,7 @@ double getPrecedence(double in)
 	}
 	return out;
 }
-void evaluateExpression(struct Queue *out,struct Queue *index)
+void evaluateExpression(struct Queue *out,struct Queue *index)//function that does heavy lifting to convert polish notation to answer
 {
 	int i = -1;
 	int qIndex = 0;
@@ -397,7 +607,7 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 	double x = 0;
 	char *errorMsg;
 	char divideByZero[] = "ERROR: Division by Zero\n";
-	
+	char undefinedFunction[] = "ERROR: Undefined Function\n";
 	
 	if(index->s1.tos > 0)
 	{
@@ -418,7 +628,7 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 			}
 			else//it is an operator
 			{
-				if(eval.tos > 1 || temp == 1)
+				if(eval.tos > 1 || (temp >= 1 && temp <= 7))
 				{
 					switch((int)(temp))
 					{
@@ -426,6 +636,84 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 							b = pop(&eval);
 							x = -1*b;
 							push(&eval,x);
+							break;
+						case 2://cosine function
+							b = pop(&eval);
+							x = cos(b);
+							push(&eval,x);
+							break;
+						case 3://cotangent function
+							b = pop(&eval);
+							x = cos(b);
+							if(x == 0)
+							{
+								error = true;
+								done = true;
+								errorMsg = divideByZero;
+							}
+							else
+							{
+								x = tan(b);
+								if(x == 0)
+								{
+									error = true;
+									done = true;
+									errorMsg = divideByZero;
+								}
+								else
+								{
+									x = 1/x;
+									push(&eval,x);
+								}
+							}
+							break;
+						case 4://ln function
+							b = pop(&eval);
+							if(b <= 0)
+							{
+								error = true;
+								done = true;
+								errorMsg = undefinedFunction;
+							}
+							else
+							{
+								x = log(b);
+								push(&eval,x);
+							}
+							break;
+						case 5://log function
+							b = pop(&eval);
+							if(b < 0)
+							{
+								error = true;
+								done = true;
+								errorMsg = undefinedFunction;
+							}
+							else
+							{
+								x = log10(b);
+								push(&eval,x);
+							}
+							break;
+						case 6://sine function
+							b = pop(&eval);
+							x = sin(b);
+							push(&eval,x);
+							break;
+						case 7://tangent function
+							b = pop(&eval);
+							x = cos(b);
+							if(x == 0)
+							{
+								error = true;
+								done = true;
+								errorMsg = divideByZero;
+							}
+							else
+							{
+								x = tan(b);
+								push(&eval,x);
+							}
 							break;
 						case 42://multiplication
 							b = pop(&eval);
@@ -448,7 +736,7 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 						case 47://division
 							b = pop(&eval);
 							a = pop(&eval);
-							if((int)b != 0)
+							if(b != 0)
 							{
 								x = a/b;
 								push(&eval,x);
@@ -476,7 +764,7 @@ void evaluateExpression(struct Queue *out,struct Queue *index)
 			qIndex++;
 		}
 	}
-	if(!error)
+	if(!error)//if no errors, print answer
 	{
 		if(eval.tos > 0)
 		{
