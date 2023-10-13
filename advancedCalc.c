@@ -32,6 +32,8 @@ void enqueue(struct Queue *q,double value);
 double dequeue(struct Queue *q);
 void printQueue(struct Queue *q);
 double buildDecimal(struct Queue *q);
+double getPrecedence(double in);
+void evaluateExpression(struct Queue *out,struct Queue *index);
 
 int main()
 {
@@ -41,6 +43,8 @@ int main()
 	initStack(&operatorStack);
 	struct Stack numberStack;//for tokenizing numbers
 	initStack(&numberStack);
+	struct Queue operatorIndexQueue;//since stacks and queues only hold doubles, used to keep track of operators in outputQueue
+	initQueue(&operatorIndexQueue);
 	struct Queue decimalQueue;//for tokenzing numbers with decimal points
 	initQueue(&decimalQueue);
 	struct Queue outputQueue;
@@ -72,7 +76,30 @@ int main()
 					enqueue(&decimalQueue,tempNum);
 				}
 			}
-			else if(c == 46)// . character
+			else
+			{
+				if(c != 46)
+				{
+					if(buildingANumber)
+					{
+						finalNum = buildNum(&numberStack);
+						if(!buildingADecimal)
+						{
+							enqueue(&outputQueue,finalNum);
+							buildingANumber = false;
+						}
+					}
+					if(buildingADecimal)
+					{
+						finalNum+=buildDecimal(&decimalQueue);
+						enqueue(&outputQueue,finalNum);
+						buildingANumber = false;
+						buildingADecimal = false;
+					}
+				}
+			}
+			
+			if(c == 46)// . character
 			{
 				if(!buildingADecimal)
 				{
@@ -80,33 +107,94 @@ int main()
 				}
 				else
 				{
-					printf("ERROR Too many decimal points in a row!\n");
+					printf("ERROR: Too many decimal points in a row\n");
 					break;
 				}
 			}
-			else
+			
+			if(c == 40 || c == 123)// ( or { characters
 			{
-				if(buildingANumber)
+				push(&operatorStack,c);
+			}
+			
+			if(c == 41)// ) character
+			{
+				int opcode = 0;
+				while(operatorStack.tos > 0)
 				{
-					finalNum = buildNum(&numberStack);
-					if(!buildingADecimal)
+					opcode = (int)pop(&operatorStack);
+					if(opcode != 40)
 					{
-						printf("Number built: %f\n",finalNum);
-						buildingANumber = false;
+						enqueue(&outputQueue,(double)opcode);
+						enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
+					}
+					else
+					{
+						break;
 					}
 				}
-				if(buildingADecimal)
+			}
+			
+			if(c == 125)// } character
+			{
+				int opcode = 0;
+				while(operatorStack.tos > 0)
 				{
-					finalNum+=buildDecimal(&decimalQueue);
-					printf("Number built: %f\n",finalNum);
-					buildingANumber = false;
-					buildingADecimal = false;
+					opcode = (int)pop(&operatorStack);
+					if(opcode != 123)
+					{
+						enqueue(&outputQueue,(double)opcode);
+						enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
+					}
+					else
+					{
+						break;
+					}
 				}
-				
-				if(c == 0)
+			}
+			
+			if((c == 42) || (c == 43) || (c == 45) || (c == 47) || (c == 94))//*+-/^ ascii codes
+			{
+				double op;
+				double p1;
+				double p2;
+				while(operatorStack.tos > 0)
 				{
-					break;
+					op = pop(&operatorStack);
+					p1 = getPrecedence(c);
+					p2 = getPrecedence(op);
+					if((int)op != 40 && (int)op != 123)
+					{
+						if(p2 < p1)
+						{
+							enqueue(&outputQueue,op);
+							enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
+						}
+						else
+						{
+							push(&operatorStack,op);
+							break;
+						}
+					}
+					else
+					{
+						push(&operatorStack,op);
+						break;
+					}
 				}
+				push(&operatorStack,c);
+			}
+			
+			if(c == 0)
+			{
+				//pop all operators still on the operator stack onto the output queue
+				while(operatorStack.tos > 0)
+				{
+					enqueue(&outputQueue,pop(&operatorStack));
+					enqueue(&operatorIndexQueue,outputQueue.s1.tos-1);
+				}
+				evaluateExpression(&outputQueue,&operatorIndexQueue);
+				break;
 			}
 		}
 		calcRunning = false;
@@ -228,4 +316,117 @@ double buildDecimal(struct Queue *q)
 		value = pop(&(q->s1))*0.1;
 	}
 	return value;
+}
+double getPrecedence(double in)
+{
+	double out = 0;
+	switch((int)in)
+	{
+		case 40:
+			out = 1;
+			break;
+		case 42:
+			out = 3;
+			break;
+		case 43:
+			out = 4;
+			break;
+		case 45:
+			out = 4;
+			break;
+		case 47:
+			out = 3;
+			break;
+		case 94:
+			out = 2;
+			break;
+	}
+	return out;
+}
+void evaluateExpression(struct Queue *out,struct Queue *index)
+{
+	printQueue(out);
+	int i = -1;
+	int qIndex = 0;
+	double answer = 0;
+	double temp = 0;
+	bool done = false;
+	bool error = false;
+	struct Stack eval;
+	initStack(&eval);
+	double a = 0;
+	double b = 0;
+	double x = 0;
+	char *errorMsg;
+	char divideByZero[] = "ERROR: Division by Zero\n";
+	
+	if(index->s1.tos > 0)
+	{
+		i = (int)dequeue(index);
+	}
+	while(!done)
+	{
+		if(out->s1.tos <= 0)
+		{
+			done = true;
+		}
+		else
+		{
+			temp = dequeue(out);
+			if(i != qIndex)//its a number not an operator
+			{
+				push(&eval,temp);
+			}
+			else//it is an operator
+			{
+				switch((int)(temp))
+				{
+					case 42://*
+						b = pop(&eval);
+						a = pop(&eval);
+						x = a*b;
+						push(&eval,x);
+						break;
+					case 43://+
+						b = pop(&eval);
+						a = pop(&eval);
+						x = a+b;
+						push(&eval,x);
+						break;
+					case 47://division
+						b = pop(&eval);
+						a = pop(&eval);
+						if((int)b != 0)
+						{
+							x = a/b;
+							push(&eval,x);
+						}
+						else
+						{
+							error = true;
+							done = true;
+							errorMsg = divideByZero;
+						}
+						break;
+				}
+				if(index->s1.tos > 0)
+				{
+					i = (int)dequeue(index);
+				}
+			}
+			qIndex++;
+		}
+	}
+	if(!error)
+	{
+		if(eval.tos > 0)
+		{
+			answer = pop(&eval);
+		}
+		printf("Answer:> %f\n",answer);
+	}
+	else
+	{
+		printf("%s",errorMsg);
+	}
 }
